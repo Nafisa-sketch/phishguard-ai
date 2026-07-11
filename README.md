@@ -6,9 +6,9 @@ compromise (BEC), and QR-code phishing ("quishing") in emails — and explains
 
 ## Why this project exists
 
-Most phishing filters catch obvious spam. They miss **spear phishing** —
+Most phishing filters catch obvious spam. They miss **spear phishing** 
 personalized attacks that use a real name, role, or company detail to look
-legitimate — and **quishing**, where attackers hide a malicious link inside a
+legitimate  and **quishing**, where attackers hide a malicious link inside a
 QR code image to bypass link scanners entirely (a technique the FBI flagged
 in active nation-state campaigns in January 2026).
 
