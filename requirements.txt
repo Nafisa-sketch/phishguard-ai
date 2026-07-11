@@ -1,0 +1,22 @@
+# Core
+pandas
+scikit-learn
+numpy
+
+# Email parsing
+tldextract
+
+# QR code detection (Phase 4 - your differentiator)
+pyzbar
+opencv-python
+Pillow
+
+# NLP (Phase 5)
+spacy
+nltk
+
+# Dashboard (Phase 7)
+streamlit
+
+# Testing (Phase 8)
+pytest
