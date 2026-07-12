@@ -21,10 +21,10 @@ which most existing consumer/small-business tools don't cover well.
 🚧 Work in progress. Build phases:
 
 - [x] Phase 0 — Project setup
-- [ ] Phase 1 — Email parsing
+- [x] Phase 1 — Email parsing
 - [ ] Phase 2 — Dataset collection
 - [ ] Phase 3 — Rule-based detector
-- [ ] Phase 4 — QR / quishing detection
+- [x] Phase 4 — QR / quishing detection
 - [ ] Phase 5 — ML classifier
 - [ ] Phase 6 — Explanation layer
 - [ ] Phase 7 — Dashboard

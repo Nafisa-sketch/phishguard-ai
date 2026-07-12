@@ -10,6 +10,7 @@ tldextract
 pyzbar
 opencv-python
 Pillow
+qrcode
 
 # NLP (Phase 5)
 spacy
