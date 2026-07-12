@@ -8,11 +8,18 @@ phone instead, which is usually unprotected by company security tools.
 
 This module answers: "Does this email contain a QR code, and if so,
 where does it actually point to?"
+
+Uses OpenCV's built-in QR detector (no extra system libraries needed,
+works reliably on Windows/Mac/Linux without separate DLL installs).
 """
 
 import io
+import numpy as np
+import cv2
 from PIL import Image
-from pyzbar import pyzbar
+
+
+_qr_detector = cv2.QRCodeDetector()
 
 
 def scan_images_for_qr(images: list) -> list:
@@ -25,23 +32,26 @@ def scan_images_for_qr(images: list) -> list:
 
     for image_info in images:
         try:
-            img = Image.open(io.BytesIO(image_info["data"]))
+            pil_img = Image.open(io.BytesIO(image_info["data"])).convert("RGB")
+            cv_img = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
         except Exception:
             # Not a readable image, skip it
             continue
 
-        decoded_objects = pyzbar.decode(img)
+        # detectAndDecodeMulti handles images with more than one QR code
+        retval, decoded_texts, points, _ = _qr_detector.detectAndDecodeMulti(cv_img)
 
-        for obj in decoded_objects:
-            if obj.type != "QRCODE":
-                continue  # skip barcodes etc, we only care about QR codes
+        if not retval:
+            continue
 
-            qr_content = obj.data.decode("utf-8", errors="ignore")
+        for text in decoded_texts:
+            if not text:
+                continue  # a QR-like shape was found but couldn't be decoded
 
             findings.append({
                 "source_filename": image_info["filename"],
-                "qr_content": qr_content,
-                "is_url": qr_content.strip().lower().startswith(("http://", "https://")),
+                "qr_content": text,
+                "is_url": text.strip().lower().startswith(("http://", "https://")),
             })
 
     return findings

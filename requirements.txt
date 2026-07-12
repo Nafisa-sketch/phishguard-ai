@@ -7,9 +7,9 @@ numpy
 tldextract
 
 # QR code detection (Phase 4 - your differentiator)
-pyzbar
 opencv-python
 Pillow
+numpy
 qrcode
 
 # NLP (Phase 5)
