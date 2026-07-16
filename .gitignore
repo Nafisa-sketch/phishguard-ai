@@ -9,3 +9,8 @@ data/processed/*
 models/*.pkl
 .DS_Store
 .env
+
+# Frontend (React)
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/

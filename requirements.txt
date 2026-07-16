@@ -18,6 +18,8 @@ nltk
 
 # Dashboard (Phase 7)
 streamlit
+plotly
+requests
 
 # Testing (Phase 8)
 pytest

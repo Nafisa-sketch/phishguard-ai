@@ -1,0 +1,80 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #0B0F19;
+  --color-card: #151B2F;
+  --color-card-raised: #1B2338;
+  --color-border: #232B45;
+  --color-primary: #6C63FF;
+  --color-accent: #00D9FF;
+  --color-success: #00E676;
+  --color-warning: #FFB547;
+  --color-danger: #FF4D6D;
+  --font-sans: 'Inter', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-bg);
+  background-image:
+    radial-gradient(ellipse 900px 600px at 8% -5%, rgba(108, 99, 255, 0.22), transparent 60%),
+    radial-gradient(ellipse 700px 500px at 95% 10%, rgba(0, 217, 255, 0.16), transparent 60%),
+    radial-gradient(ellipse 600px 400px at 50% 100%, rgba(108, 99, 255, 0.10), transparent 60%);
+  background-attachment: fixed;
+  color: #E8ECF4;
+  font-family: var(--font-sans);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #2A3350;
+  border-radius: 8px;
+}
+
+.glass {
+  background: rgba(21, 27, 47, 0.55);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  position: relative;
+}
+.glass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(108,99,255,0.25), rgba(255,255,255,0) 40%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.glow-primary:hover {
+  box-shadow: 0 0 48px rgba(108, 99, 255, 0.35), 0 8px 24px rgba(0,0,0,0.4);
+}
+.glow-accent:hover {
+  box-shadow: 0 0 48px rgba(0, 217, 255, 0.3);
+}
+.glow-danger {
+  box-shadow: 0 0 32px rgba(255, 77, 109, 0.35);
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, #FFFFFF, #A8A4FF);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
