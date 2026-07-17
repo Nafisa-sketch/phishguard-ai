@@ -35,3 +35,54 @@ export async function scanQrImage(file: File): Promise<{ findings: { source_file
   const res = await fetch(`${BASE}/scan-qr`, { method: 'POST', body: formData });
   return res.json();
 }
+
+export interface SenderIntel {
+  sender: string;
+  email_count: number;
+  avg_risk: number;
+  max_risk: number;
+  last_seen: string;
+}
+
+export async function getSenders(): Promise<SenderIntel[]> {
+  const res = await fetch(`${BASE}/senders`);
+  const data = await res.json();
+  return data.senders;
+}
+
+export async function getAttackStories(minScore = 60): Promise<ScanRecord[]> {
+  const res = await fetch(`${BASE}/attack-stories?min_score=${minScore}`);
+  const data = await res.json();
+  return data.stories;
+}
+
+export async function checkUrl(url: string): Promise<{ url: string; suspicious: boolean; flagged_as: string[] }> {
+  const res = await fetch(`${BASE}/check-url`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url }),
+  });
+  return res.json();
+}
+
+export interface ThreatFeedItem {
+  date_added: string;
+  url: string;
+  threat_type: string;
+  tags: string;
+}
+
+export async function getThreatFeed(limit = 15): Promise<ThreatFeedItem[]> {
+  const res = await fetch(`${BASE}/threat-feed?limit=${limit}`);
+  const data = await res.json();
+  return data.threats;
+}
+
+export interface IntegrationStatus {
+  gmail: { credentials_found: boolean; authorized: boolean; status: string };
+}
+
+export async function getIntegrationsStatus(): Promise<IntegrationStatus> {
+  const res = await fetch(`${BASE}/integrations/status`);
+  return res.json();
+}

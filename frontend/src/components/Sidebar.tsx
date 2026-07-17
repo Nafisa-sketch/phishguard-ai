@@ -7,14 +7,14 @@ const NAV_ITEMS = [
   { key: 'mission-control', label: 'Mission Control', icon: ShieldCheck, available: true },
   { key: 'email-analysis', label: 'Email Analysis', icon: Mail, available: true },
   { key: 'qr-shield', label: 'QR Shield', icon: QrCode, available: true },
-  { key: 'sender-intelligence', label: 'Sender Intelligence', icon: UserSearch, available: false },
-  { key: 'url-intelligence', label: 'URL Intelligence', icon: Link2, available: false },
-  { key: 'trust-dna', label: 'Trust DNA', icon: Fingerprint, available: false },
-  { key: 'attack-stories', label: 'Attack Stories', icon: BookOpen, available: false },
-  { key: 'threat-intelligence', label: 'Threat Intelligence', icon: Radar, available: false },
+  { key: 'sender-intelligence', label: 'Sender Intelligence', icon: UserSearch, available: true },
+  { key: 'url-intelligence', label: 'URL Intelligence', icon: Link2, available: true },
+  { key: 'trust-dna', label: 'Trust DNA', icon: Fingerprint, available: true },
+  { key: 'attack-stories', label: 'Attack Stories', icon: BookOpen, available: true },
+  { key: 'threat-intelligence', label: 'Threat Intelligence', icon: Radar, available: true },
   { key: 'reports', label: 'Reports', icon: FileBarChart, available: true },
-  { key: 'settings', label: 'Settings', icon: Settings, available: false },
-  { key: 'integrations', label: 'Integrations', icon: Puzzle, available: false },
+  { key: 'settings', label: 'Settings', icon: Settings, available: true },
+  { key: 'integrations', label: 'Integrations', icon: Puzzle, available: true },
 ];
 
 interface SidebarProps {
@@ -31,7 +31,7 @@ export default function Sidebar({ activePage, onNavigate }: SidebarProps) {
         </div>
         <div>
           <div className="font-semibold text-[15px] tracking-tight text-white">PhishGuard AI</div>
-          <div className="text-[10px] text-slate-500 tracking-wide">AI Identity Attack Intelligence</div>
+          <div className="text-[9px] text-slate-500 tracking-wide">(AI Email Trust Intelligence Platform)</div>
         </div>
       </div>
 

@@ -26,6 +26,7 @@ WEIGHTS = {
     "auth_failed": 30,
     "new_sender": 10,
     "device_code": 35,
+    "display_spoofing": 30,
 }
 
 
@@ -52,49 +53,68 @@ def analyze_email(parsed_email: dict, claimed_org: str = None, raw_email_text: s
 
     sender_history = database.has_seen_sender_before(parsed_email.get("sender"))
 
-    score = 0
     techniques = []
+    wording_score = 0   # urgency/authority/request -- weak on their own, dampened for trusted domains
+    structural_score = 0  # domain/link/QR/auth/device-code -- real evidence, never dampened
 
     if text_features["urgency_detected"]:
-        score += WEIGHTS["urgency"]
+        wording_score += WEIGHTS["urgency"]
         techniques.append("Urgency Manipulation")
 
     if text_features["authority_detected"]:
-        score += WEIGHTS["authority"]
+        wording_score += WEIGHTS["authority"]
         techniques.append("Authority Impersonation")
 
     if text_features["request_detected"]:
-        score += WEIGHTS["request"]
+        wording_score += WEIGHTS["request"]
         techniques.append("Suspicious Request (money/credentials)")
 
     if text_features["domain_suspicious"]:
-        score += WEIGHTS["domain_suspicious"]
+        structural_score += WEIGHTS["domain_suspicious"]
         techniques.append("Sender Domain Mismatch")
 
     if text_features["suspicious_links_found"]:
-        score += WEIGHTS["suspicious_links"]
+        structural_score += WEIGHTS["suspicious_links"]
         techniques.append("Suspicious Link")
 
     if qr_signal["qr_detected"]:
-        score += WEIGHTS["qr_detected"]
+        structural_score += WEIGHTS["qr_detected"]
         techniques.append("QR Code / Quishing")
 
     if text_features.get("callback_detected"):
-        score += WEIGHTS["callback"]
+        structural_score += WEIGHTS["callback"]
         techniques.append("Callback Phishing (phone number)")
 
     if auth_signal["auth_failed"]:
-        score += WEIGHTS["auth_failed"]
+        structural_score += WEIGHTS["auth_failed"]
         techniques.append("Failed Sender Authentication (SPF/DKIM/DMARC)")
 
     if text_features.get("device_code_phishing_detected"):
-        score += WEIGHTS["device_code"]
+        structural_score += WEIGHTS["device_code"]
         techniques.append("Device Code Phishing (OAuth Token Theft)")
+
+    if text_features.get("display_name_spoofing_detected"):
+        structural_score += WEIGHTS["display_spoofing"]
+        techniques.append(f"Display Name Spoofing (claims to be {text_features.get('claimed_brand', 'a known brand')})")
+
+    # Trusted-domain dampening: if the sender's domain is one of our
+    # well-known legitimate services AND there's no display-name
+    # spoofing contradicting that, wording alone (urgency/authority/
+    # request) is heavily discounted -- these companies send urgent-
+    # sounding transactional email constantly. Structural evidence
+    # (bad domain, bad link, QR, failed auth, device-code abuse) is
+    # NOT discounted, because that evidence is real regardless of who
+    # the sender claims to be.
+    is_trusted = text_features.get("is_trusted_domain") and not text_features.get("display_name_spoofing_detected")
+    if is_trusted:
+        wording_score = round(wording_score * 0.2)
+
+    score = wording_score + structural_score
 
     # A brand-new sender only adds risk when OTHER signals already fired --
     # a first-time sender with a perfectly normal email isn't suspicious
     # on its own, but a first-time sender asking for money/urgency is.
-    if not sender_history["seen_before"] and techniques:
+    if not sender_history["seen_before"] and techniques and not is_trusted:
         score += WEIGHTS["new_sender"]
         techniques.append("First-Time Sender")
 
@@ -136,6 +156,12 @@ def classify_attack_type(text_features: dict, qr_signal: dict) -> str:
 
     if qr_signal["qr_detected"]:
         return "Quishing (QR Code Phishing)"
+
+    # Display name spoofing (claims to be PayPal/Microsoft/etc but the
+    # domain doesn't match) is strong, structural evidence on its own --
+    # it doesn't need urgency/request wording to count as an attack.
+    if text_features.get("display_name_spoofing_detected"):
+        return "Brand Impersonation (Display Name Spoofing)"
 
     # Whaling: specifically impersonates a senior executive AND asks
     # for something sensitive -- a more targeted, higher-stakes version
@@ -205,6 +231,11 @@ def build_explanation(result: dict) -> str:
             "it directs you to a genuine Microsoft/Google/GitHub device-login page and asks you to enter a code -- "
             "this doesn't steal your password, it tricks you into personally authorizing the attacker's device, "
             "handing them a valid access token"
+        )
+    if text_features.get("display_name_spoofing_detected"):
+        reasons.append(
+            f"the display name claims to be '{text_features.get('claimed_brand')}' but the actual sending "
+            f"domain doesn't match that company at all -- a classic impersonation trick"
         )
     if text_features.get("callback_detected"):
         reasons.append("it urges the reader to call a phone number, moving the attack to a phone call where normal email safeguards don't apply")

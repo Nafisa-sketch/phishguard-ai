@@ -5,17 +5,13 @@ import MissionControl from './pages/MissionControl';
 import EmailAnalysis from './pages/EmailAnalysis';
 import QrShield from './pages/QrShield';
 import Reports from './pages/Reports';
-import ComingSoon from './pages/ComingSoon';
-
-const PAGE_TITLES: Record<string, string> = {
-  'sender-intelligence': 'Sender Intelligence',
-  'url-intelligence': 'URL Intelligence',
-  'trust-dna': 'Trust DNA',
-  'attack-stories': 'Attack Stories',
-  'threat-intelligence': 'Threat Intelligence',
-  settings: 'Settings',
-  integrations: 'Integrations',
-};
+import SenderIntelligence from './pages/SenderIntelligence';
+import UrlIntelligence from './pages/UrlIntelligence';
+import TrustDnaPage from './pages/TrustDnaPage';
+import AttackStories from './pages/AttackStories';
+import ThreatIntelligence from './pages/ThreatIntelligence';
+import Settings from './pages/Settings';
+import Integrations from './pages/Integrations';
 
 export default function App() {
   const [page, setPage] = useState('mission-control');
@@ -29,7 +25,13 @@ export default function App() {
         {page === 'email-analysis' && <EmailAnalysis />}
         {page === 'qr-shield' && <QrShield />}
         {page === 'reports' && <Reports />}
-        {PAGE_TITLES[page] && <ComingSoon title={PAGE_TITLES[page]} />}
+        {page === 'sender-intelligence' && <SenderIntelligence />}
+        {page === 'url-intelligence' && <UrlIntelligence />}
+        {page === 'trust-dna' && <TrustDnaPage />}
+        {page === 'attack-stories' && <AttackStories />}
+        {page === 'threat-intelligence' && <ThreatIntelligence />}
+        {page === 'settings' && <Settings />}
+        {page === 'integrations' && <Integrations />}
       </div>
     </div>
   );

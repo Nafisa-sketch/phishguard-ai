@@ -12,6 +12,15 @@
   --color-warning: #FFB547;
   --color-danger: #FF4D6D;
   --font-sans: 'Inter', sans-serif;
+
+  /* Brighter slate scale, tuned for readability on our very dark
+     background -- the default Tailwind slate-500/600/700 are too
+     dim/low-contrast against #0B0F19. */
+  --color-slate-300: #DCE2F0;
+  --color-slate-400: #C3CBE0;
+  --color-slate-500: #A6AFC9;
+  --color-slate-600: #8892AD;
+  --color-slate-700: #6B7591;
 }
 
 * {

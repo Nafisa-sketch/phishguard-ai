@@ -142,6 +142,41 @@ def has_seen_sender_before(sender: str) -> dict:
     return {"seen_before": count > 0, "previous_count": count}
 
 
+def get_sender_intelligence() -> list:
+    """
+    Groups all scans by sender -- used by the Sender Intelligence page.
+    For each sender: how many emails, average risk score, worst
+    (highest) risk score seen, and when we last saw them.
+    """
+    conn = _connect()
+    rows = conn.execute(
+        """
+        SELECT sender,
+               COUNT(*) as email_count,
+               ROUND(AVG(risk_score), 1) as avg_risk,
+               MAX(risk_score) as max_risk,
+               MAX(scanned_at) as last_seen
+        FROM scans
+        WHERE sender IS NOT NULL
+        GROUP BY sender
+        ORDER BY max_risk DESC, email_count DESC
+        """
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_attack_stories(min_score: int = 60, limit: int = 20) -> list:
+    """Returns the highest-risk scans, used by the Attack Stories page."""
+    conn = _connect()
+    rows = conn.execute(
+        "SELECT * FROM scans WHERE risk_score >= ? ORDER BY risk_score DESC, scanned_at DESC LIMIT ?",
+        (min_score, limit),
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
 if __name__ == "__main__":
     init_db()
     print("Database initialized at:", DB_PATH)

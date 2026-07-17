@@ -21,8 +21,8 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
-from src import parser, detector, database, qr_detector
-from src.features import psychology_scores
+from src import parser, detector, database, qr_detector, threat_feed
+from src.features import psychology_scores, check_links
 
 app = Flask(__name__)
 CORS(app)  # allow the React dev server (different port) to call this API
@@ -95,6 +95,52 @@ def stats():
 def trend():
     days = int(request.args.get("days", 7))
     return jsonify({"trend": database.get_daily_trend(days)})
+
+
+@app.route("/api/senders", methods=["GET"])
+def senders():
+    return jsonify({"senders": database.get_sender_intelligence()})
+
+
+@app.route("/api/attack-stories", methods=["GET"])
+def attack_stories():
+    min_score = int(request.args.get("min_score", 60))
+    return jsonify({"stories": database.get_attack_stories(min_score=min_score)})
+
+
+@app.route("/api/check-url", methods=["POST"])
+def check_url():
+    """Body: { "url": "..." } -- runs our existing link-reputation checks on a single URL."""
+    data = request.get_json(force=True)
+    url = data.get("url", "").strip()
+    if not url:
+        return jsonify({"error": "url is required"}), 400
+
+    result = check_links([url])
+    return jsonify({
+        "url": url,
+        "suspicious": result["suspicious_links_found"],
+        "flagged_as": result["suspicious_links"],
+    })
+
+
+@app.route("/api/threat-feed", methods=["GET"])
+def threat_feed_route():
+    limit = int(request.args.get("limit", 15))
+    return jsonify({"threats": threat_feed.get_recent_threats(limit=limit)})
+
+
+@app.route("/api/integrations/status", methods=["GET"])
+def integrations_status():
+    gmail_connected = os.path.exists("credentials.json")
+    gmail_authorized = os.path.exists("token.pickle")
+    return jsonify({
+        "gmail": {
+            "credentials_found": gmail_connected,
+            "authorized": gmail_authorized,
+            "status": "connected" if gmail_authorized else ("credentials_only" if gmail_connected else "not_configured"),
+        }
+    })
 
 
 if __name__ == "__main__":

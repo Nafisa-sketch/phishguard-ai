@@ -72,6 +72,7 @@ DEVICE_CODE_DOMAINS = [
 DEVICE_CODE_PHRASES = [
     "enter the code", "enter this code", "device code", "enter code to sign in",
     "go to aka.ms", "authenticate this device", "sign in on your other device",
+    "enter code", "verify device", "device verification", "authorize this device",
 ]
 
 # Phrases that signal a request for money, credentials, or sensitive data
@@ -87,6 +88,36 @@ FREE_EMAIL_DOMAINS = [
     "gmail.com", "yahoo.com", "outlook.com", "hotmail.com",
     "aol.com", "icloud.com", "protonmail.com",
 ]
+
+# Well-established legitimate service domains. If a sender's domain (or
+# a subdomain of it) matches one of these, we trust it much more
+# heavily -- these are large organizations that send millions of
+# legitimate transactional emails (login links, password resets, job
+# notifications) that would otherwise look "urgent" or "request-like"
+# to a pure keyword scan.
+#
+# HONEST LIMITATION: this list is small and manually curated. A
+# company not on this list isn't treated as suspicious -- it's just
+# not given the extra trust boost. This reduces false positives for
+# common cases; it does not, and cannot, guarantee 100% accuracy.
+# No detector, rule-based or ML, can promise that.
+TRUSTED_DOMAINS = [
+    "google.com", "microsoft.com", "apple.com", "amazon.com", "anthropic.com",
+    "indeed.com", "linkedin.com", "github.com", "successfactors.com", "successfactors.eu",
+    "jobs2web.com", "workday.com", "salesforce.com", "dropbox.com", "slack.com",
+    "zoom.us", "dlr.de", "fraunhofer.de",
+]
+
+# Brand names that are common spoofing targets. If the sender's DISPLAY
+# NAME claims to be one of these brands but the actual email domain
+# doesn't match, that's classic "display name spoofing" --
+# e.g. "PayPal Support <random123@gmail.com>".
+SPOOFABLE_BRANDS = {
+    "paypal": "paypal.com", "microsoft": "microsoft.com", "apple": "apple.com",
+    "amazon": "amazon.com", "google": "google.com", "netflix": "netflix.com",
+    "bank of america": "bankofamerica.com", "chase": "chase.com", "wells fargo": "wellsfargo.com",
+    "dhl": "dhl.com", "fedex": "fedex.com", "ups": "ups.com",
+}
 
 
 def check_urgency(body: str) -> dict:
@@ -164,8 +195,12 @@ def check_sender_domain(sender: str, claimed_org: str = None) -> dict:
         }
 
     if claimed_org:
+        # Don't flag a "mismatch" for well-known legitimate services --
+        # a Google or Amazon notification email legitimately won't
+        # contain the user's own company name in its domain.
+        is_trusted = any(domain == d or domain.endswith("." + d) for d in TRUSTED_DOMAINS)
         extracted = tldextract.extract(domain)
-        if claimed_org.lower() not in extracted.domain.lower():
+        if not is_trusted and claimed_org.lower() not in extracted.domain.lower():
             return {
                 "domain_suspicious": True,
                 "reason": f"Sender domain '{domain}' does not match the "
@@ -243,6 +278,46 @@ def psychology_scores(body: str) -> dict:
     }
 
 
+def check_trusted_domain(sender: str) -> dict:
+    """
+    Checks if the sender's domain (or a subdomain of it) matches our
+    curated list of well-established legitimate services.
+    """
+    if not sender:
+        return {"is_trusted_domain": False}
+
+    email_match = re.search(r"[\w\.-]+@[\w\.-]+", sender)
+    if not email_match:
+        return {"is_trusted_domain": False}
+
+    domain = email_match.group(0).split("@")[-1].lower()
+    is_trusted = any(domain == d or domain.endswith("." + d) for d in TRUSTED_DOMAINS)
+    return {"is_trusted_domain": is_trusted}
+
+
+def check_display_name_spoofing(sender: str) -> dict:
+    """
+    Checks for a classic spoofing pattern: the display name claims to
+    be a well-known brand, but the actual sending domain doesn't match
+    that brand at all -- e.g. 'PayPal Security <alerts@random-xyz.com>'.
+    """
+    if not sender or "<" not in sender:
+        return {"display_name_spoofing_detected": False, "claimed_brand": None}
+
+    display_name = sender.split("<")[0].strip().strip('"').lower()
+    email_match = re.search(r"[\w\.-]+@[\w\.-]+", sender)
+    if not email_match:
+        return {"display_name_spoofing_detected": False, "claimed_brand": None}
+
+    domain = email_match.group(0).split("@")[-1].lower()
+
+    for brand, real_domain in SPOOFABLE_BRANDS.items():
+        if brand in display_name and not (domain == real_domain or domain.endswith("." + real_domain)):
+            return {"display_name_spoofing_detected": True, "claimed_brand": brand}
+
+    return {"display_name_spoofing_detected": False, "claimed_brand": None}
+
+
 def extract_all_features(parsed_email: dict, claimed_org: str = None) -> dict:
     """
     Runs every check above and returns one combined dictionary.
@@ -261,6 +336,8 @@ def extract_all_features(parsed_email: dict, claimed_org: str = None) -> dict:
         **check_executive_impersonation(body),
         **check_callback_phishing(body),
         **check_device_code_phishing(body, links),
+        **check_trusted_domain(sender),
+        **check_display_name_spoofing(sender),
     }
 
 
