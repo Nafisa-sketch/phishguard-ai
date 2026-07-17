@@ -103,6 +103,15 @@ def analyze_email(parsed_email: dict, claimed_org: str = None, raw_email_text: s
     # Decide overall attack type based on which signals fired together
     attack_type = classify_attack_type(text_features, qr_signal)
 
+    # If nothing rose to the level of an actual attack pattern (just a
+    # stray urgency/request word with no domain or link evidence), cap
+    # the score low. Otherwise a legitimate "your link expires soon"
+    # email can end up at a misleading MEDIUM risk score while the
+    # label correctly says "No Clear Threat Detected" -- score and
+    # label should agree.
+    if attack_type == "No Clear Threat Detected":
+        score = min(score, 15)
+
     return {
         "risk_score": score,
         "threat_level": _risk_to_level(score),
@@ -144,10 +153,20 @@ def classify_attack_type(text_features: dict, qr_signal: dict) -> str:
     if text_features.get("callback_detected") and text_features["urgency_detected"]:
         return "Callback Phishing"
 
-    if text_features["authority_detected"] or text_features["domain_suspicious"]:
+    # Spear phishing needs authority/domain issues PLUS an actual request --
+    # a job-notification email that happens to mention "management" but
+    # asks for nothing is not spear phishing on its own.
+    if (text_features["authority_detected"] or text_features["domain_suspicious"]) and text_features["request_detected"]:
         return "Spear Phishing"
 
-    if text_features["urgency_detected"] or text_features["request_detected"]:
+    # Generic phishing needs wording (urgency/request) PLUS actual evidence
+    # of tampering (a suspicious domain or a disguised link) -- wording
+    # alone isn't enough. Legitimate services send "secure login link"
+    # and "your link expires soon" emails constantly; that vocabulary by
+    # itself isn't evidence of an attack.
+    if (text_features["urgency_detected"] or text_features["request_detected"]) and (
+        text_features["domain_suspicious"] or text_features["suspicious_links_found"]
+    ):
         return "Generic Phishing"
 
     return "No Clear Threat Detected"

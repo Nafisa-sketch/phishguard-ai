@@ -14,3 +14,7 @@ models/*.pkl
 frontend/node_modules/
 frontend/dist/
 frontend/.vite/
+
+# Gmail credentials (never commit these!)
+credentials.json
+token.pickle
