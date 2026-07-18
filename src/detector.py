@@ -11,6 +11,7 @@ from src import features as feat
 from src import qr_detector
 from src import email_auth
 from src import database
+from src import ml_classifier
 
 
 # How many points each detected signal adds toward the risk score.
@@ -132,6 +133,31 @@ def analyze_email(parsed_email: dict, claimed_org: str = None, raw_email_text: s
     if attack_type == "No Clear Threat Detected":
         score = min(score, 15)
 
+    # Blend in the ML model's prediction, if a trained model exists
+    # (see train_model.py / ml_classifier.py). The ML model catches
+    # wording/style patterns a fixed rule list can't anticipate; the
+    # rules catch structural evidence (QR codes, failed auth, domain
+    # mismatches) the ML model never sees from text alone. Neither one
+    # replaces the other.
+    ml_proba = ml_classifier.predict_proba(parsed_email.get("body") or "")
+    if ml_proba is not None:
+        ml_score = round(ml_proba * 100)
+        if attack_type == "No Clear Threat Detected" and ml_proba >= 0.7:
+            # Rules found no structural evidence, but the ML model is
+            # confident this reads like phishing based on wording/style
+            # alone -- surface that as its own finding rather than
+            # silently dropping it.
+            attack_type = "AI-Detected Suspicious Pattern"
+            techniques.append(f"ML Model Flag ({ml_score}% phishing-like)")
+            score = max(score, round(ml_score * 0.6))
+        elif attack_type != "No Clear Threat Detected":
+            # Rules already found something -- let the ML score nudge
+            # the final number rather than override the rule-based
+            # classification, which carries the specific evidence.
+            score = min(100, round(0.7 * score + 0.3 * ml_score))
+    else:
+        ml_score = None
+
     return {
         "risk_score": score,
         "threat_level": _risk_to_level(score),
@@ -143,6 +169,7 @@ def analyze_email(parsed_email: dict, claimed_org: str = None, raw_email_text: s
             "auth_result": auth_result,
             "auth_signal": auth_signal,
             "sender_history": sender_history,
+            "ml_score": ml_score,
         },
     }
 
@@ -210,6 +237,14 @@ def build_explanation(result: dict) -> str:
 
     if not techniques:
         return "This email does not show any of the common signs of phishing, spear phishing, or QR-code based attacks that this tool checks for."
+
+    if attack_type == "AI-Detected Suspicious Pattern":
+        return (
+            "No specific rule-based red flag (like a fake domain or a suspicious link) was found, but our "
+            "trained machine learning model -- which learned patterns from thousands of real phishing and "
+            "legitimate emails -- flagged this email's wording and style as resembling phishing. This is a "
+            "softer signal than a confirmed structural red flag, so treat it as a caution rather than a certainty."
+        )
 
     reasons = []
     text_features = result["details"]["text_features"]

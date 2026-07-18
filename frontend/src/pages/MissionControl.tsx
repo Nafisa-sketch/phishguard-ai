@@ -11,8 +11,9 @@ import TrustDna from '../components/TrustDna';
 import SenderReputation from '../components/SenderReputation';
 import PsychologyPanel from '../components/PsychologyPanel';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { getStats, getTrend, getHistory } from '../api/client';
+import { getStats, getTrend, getHistory, getModelInfo } from '../api/client';
 import type { Stats, TrendPoint, ScanRecord } from '../types';
+import type { ModelInfo } from '../api/client';
 
 const LEVEL_COLOR: Record<string, string> = {
   HIGH: '#FF4D6D',
@@ -55,11 +56,13 @@ export default function MissionControl({ onNavigate }: MissionControlProps) {
   const [stats, setStats] = useState<Stats | null>(null);
   const [trend, setTrend] = useState<TrendPoint[]>([]);
   const [history, setHistory] = useState<ScanRecord[]>([]);
+  const [modelInfo, setModelInfo] = useState<ModelInfo | null>(null);
 
   useEffect(() => {
     getStats().then(setStats).catch(() => {});
     getTrend(7).then(setTrend).catch(() => {});
     getHistory(8).then(setHistory).catch(() => {});
+    getModelInfo().then(setModelInfo).catch(() => {});
   }, []);
 
   const latest = history[0];
@@ -93,7 +96,14 @@ export default function MissionControl({ onNavigate }: MissionControlProps) {
         <StatCard label="Protected Emails" value={total.toLocaleString()} icon={Mail} accent="primary" trend="all time" delay={0.05} />
         <StatCard label="Threats Blocked" value={(stats?.suspicious ?? 0) + (stats?.malicious ?? 0)} icon={ShieldAlert} accent="danger" trend="all time" delay={0.1} />
         <StatCard label="Critical Alerts" value={stats?.malicious ?? 0} icon={Bell} accent="warning" trend="all time" delay={0.15} />
-        <StatCard label="AI Accuracy" value="—" icon={Target} accent="primary" trend="not yet benchmarked" delay={0.2} />
+        <StatCard
+          label="AI Accuracy"
+          value={modelInfo?.trained ? `${(modelInfo.accuracy! * 100).toFixed(1)}%` : '—'}
+          icon={Target}
+          accent="primary"
+          trend={modelInfo?.trained ? `on ${modelInfo.train_size?.toLocaleString()} emails` : 'not yet trained'}
+          delay={0.2}
+        />
       </div>
 
       <div className="grid grid-cols-10 gap-4 mb-5">

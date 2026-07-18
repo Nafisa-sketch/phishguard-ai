@@ -1,0 +1,18 @@
+Train size: 65988
+Test size: 16498
+Accuracy:  0.9661
+Precision: 0.9481
+Recall:    0.9888
+F1 Score:  0.9680
+
+Confusion Matrix (rows=actual, cols=predicted, order=[legit, phishing]):
+[[7455, 464], [96, 8483]]
+
+              precision    recall  f1-score   support
+
+           0       0.99      0.94      0.96      7919
+           1       0.95      0.99      0.97      8579
+
+    accuracy                           0.97     16498
+   macro avg       0.97      0.97      0.97     16498
+weighted avg       0.97      0.97      0.97     16498

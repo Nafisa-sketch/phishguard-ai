@@ -86,3 +86,17 @@ export async function getIntegrationsStatus(): Promise<IntegrationStatus> {
   const res = await fetch(`${BASE}/integrations/status`);
   return res.json();
 }
+
+export interface ModelInfo {
+  trained: boolean;
+  accuracy?: number;
+  precision?: number;
+  recall?: number;
+  f1_score?: number;
+  train_size?: number;
+}
+
+export async function getModelInfo(): Promise<ModelInfo> {
+  const res = await fetch(`${BASE}/model-info`);
+  return res.json();
+}

@@ -143,5 +143,32 @@ def integrations_status():
     })
 
 
+@app.route("/api/model-info", methods=["GET"])
+def model_info():
+    """Reads the trained model's real evaluation metrics, if a model has been trained."""
+    metrics_path = os.path.join("models", "metrics.txt")
+    if not os.path.exists(metrics_path):
+        return jsonify({"trained": False})
+
+    with open(metrics_path) as f:
+        content = f.read()
+
+    import re
+    accuracy_match = re.search(r"Accuracy:\s*([\d.]+)", content)
+    precision_match = re.search(r"Precision:\s*([\d.]+)", content)
+    recall_match = re.search(r"Recall:\s*([\d.]+)", content)
+    f1_match = re.search(r"F1 Score:\s*([\d.]+)", content)
+    train_size_match = re.search(r"Train size:\s*(\d+)", content)
+
+    return jsonify({
+        "trained": True,
+        "accuracy": float(accuracy_match.group(1)) if accuracy_match else None,
+        "precision": float(precision_match.group(1)) if precision_match else None,
+        "recall": float(recall_match.group(1)) if recall_match else None,
+        "f1_score": float(f1_match.group(1)) if f1_match else None,
+        "train_size": int(train_size_match.group(1)) if train_size_match else None,
+    })
+
+
 if __name__ == "__main__":
     app.run(debug=False, port=5000)
