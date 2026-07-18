@@ -1,49 +1,141 @@
 # PhishGuard AI
 
-An AI-powered assistant that detects phishing, spear phishing, business email
-compromise (BEC), and QR-code phishing ("quishing") in emails — and explains
-*why* an email is dangerous in plain language.
+**AI Email Trust Intelligence Platform** — detects phishing, spear phishing,
+whaling, business email compromise (BEC), QR-code phishing ("quishing"),
+callback phishing, and device-code (OAuth token theft) attacks, then
+explains *why* an email is dangerous in plain language.
 
-## Why this project exists
+Built as a learning/portfolio project combining a rule-based detection
+engine, a real trained machine learning classifier, and a full-stack
+web dashboard.
 
-Most phishing filters catch obvious spam. They miss **spear phishing** —
-personalized attacks that use a real name, role, or company detail to look
-legitimate — and **quishing**, where attackers hide a malicious link inside a
-QR code image to bypass link scanners entirely (a technique the FBI flagged
-in active nation-state campaigns in January 2026).
+## What it detects
 
-PhishGuard AI is a learning project + portfolio piece that builds a working
-detector for all of these, with a focus on the QR-code detection angle,
-which most existing consumer/small-business tools don't cover well.
+| Attack type | How |
+|---|---|
+| Generic / Spear Phishing | Urgency, authority, and request-pattern keyword analysis |
+| Business Email Compromise (BEC) | Authority + money/credential request + sender domain mismatch |
+| Whaling | Same as BEC, specifically impersonating senior executives |
+| Callback Phishing | Phone number + urgency language ("call us immediately") |
+| Quishing (QR code phishing) | Decodes QR codes in email images, checks the hidden URL |
+| Device Code Phishing | Detects real Microsoft/Google/GitHub device-login links paired with "enter this code" language — a 2024-2025 attack technique that steals OAuth tokens without ever touching a password |
+| Brand Impersonation | Display name claims a known brand (PayPal, Microsoft, etc.) but the sending domain doesn't match |
+| **AI-Detected Suspicious Pattern** | A trained ML model (see below) flags emails whose *wording/style* resembles phishing even when no rule fired |
 
-## Status
+Every email is also checked for:
+- SPF / DKIM / DMARC authentication results (when available, e.g. from an uploaded `.eml` file)
+- Whether the sender has emailed you before (first-time-sender signal)
+- Whether the sender's domain is a well-known, trusted service (reduces false positives)
+- Psychological manipulation levers (urgency, authority, fear, greed, curiosity)
 
-🚧 Work in progress. Build phases:
+## Machine Learning model
 
-- [x] Phase 0 — Project setup
-- [x] Phase 1 — Email parsing
-- [ ] Phase 2 — Dataset collection
-- [x] Phase 3 — Rule-based detector
-- [x] Phase 4 — QR / quishing detection
-- [ ] Phase 5 — ML classifier
-- [ ] Phase 6 — Explanation layer
-- [ ] Phase 7 — Dashboard
-- [ ] Phase 8 — Tests + CI
+A TF-IDF + Random Forest classifier trained on **82,486 real emails**
+(a combined Kaggle dataset built from Enron, Nazario, SpamAssassin, CEAS,
+and Nigerian-fraud corpora):
 
-## How to run (once built)
+- **Accuracy:** 96.6%
+- **Precision:** 94.8%
+- **Recall:** 98.9%
+- **F1 Score:** 0.968
 
-```bash
-pip install -r requirements.txt
-streamlit run app/dashboard.py
-```
+The ML model and the rule-based engine work together: rules catch
+*structural* evidence (bad domains, malicious QR codes, failed
+authentication) the ML model can't see, while the ML model catches
+*wording/style* patterns that fixed keyword rules miss. See
+`train_model.py` to retrain on your own data.
 
 ## Architecture
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md) for how the pieces fit together.
+```
+React frontend (Vite + TypeScript + Tailwind)
+        │  HTTP (fetch)
+        ▼
+Flask API (api.py)
+        │
+        ▼
+Python detection engine (src/)
+  ├─ parser.py           — email parsing
+  ├─ features.py         — rule-based signal extraction
+  ├─ qr_detector.py       — QR code decoding (OpenCV)
+  ├─ email_auth.py        — SPF/DKIM/DMARC checking
+  ├─ ml_classifier.py      — trained ML model (TF-IDF + Random Forest)
+  ├─ detector.py           — combines everything into a risk score
+  ├─ database.py            — SQLite scan history
+  ├─ gmail_client.py         — real Gmail inbox integration (OAuth, read-only)
+  └─ threat_feed.py          — live threat intel (URLhaus)
+```
 
-## Limitations
+## Dashboard pages
 
-This is a learning/portfolio prototype, not production security software.
-It has not been evaluated on real-world attack traffic at scale, and
-false positive/negative rates will be documented honestly once testing
-is complete (Phase 8).
+- **Mission Control** — live stats, threat timeline, world map (illustrative), threat-type breakdown, Trust DNA, psychology panel
+- **Email Analysis** — paste an email or upload a `.eml` file for full analysis
+- **QR Shield** — upload a QR code image directly
+- **Sender Intelligence** — every sender you've received email from, ranked by risk
+- **URL Intelligence** — check any single URL for structural red flags
+- **Trust DNA** — behavioral trust profile built from your own scan history
+- **Attack Stories** — high-risk scans presented as plain-language narratives
+- **Threat Intelligence** — live global feed from URLhaus (abuse.ch)
+- **Reports** — full scan history table
+- **Settings / Integrations** — preferences and Gmail connection status
+
+## How to run
+
+### 1. Backend (Python)
+
+```bash
+pip install -r requirements.txt
+pip install flask flask-cors
+python api.py
+```
+Runs on `http://localhost:5000`.
+
+### 2. Frontend (React)
+
+```bash
+cd frontend
+npm install --legacy-peer-deps
+npm run dev
+```
+Runs on `http://localhost:5173`. Open this in your browser.
+
+### 3. (Optional) Train the ML model yourself
+
+Download the ["Phishing Email Dataset"](https://www.kaggle.com/datasets/naserabdullahalam/phishing-email-dataset)
+from Kaggle, unzip it into `data/raw/Phishing_Email/`, then:
+
+```bash
+python train_model.py
+```
+
+### 4. (Optional) Connect a real Gmail inbox
+
+Set up OAuth credentials in Google Cloud Console (Gmail API, Desktop app
+credentials), save `credentials.json` in the project root, then:
+
+```bash
+python scan_inbox.py
+```
+
+First run opens a browser login/consent screen. After that, your inbox
+scans are saved to the same database the dashboard reads from.
+
+## Honest limitations
+
+This is a learning/portfolio project, not production security software:
+
+- The world map on Mission Control is illustrative — real sender
+  geolocation requires a live threat-intelligence feed, which most
+  pasted email text doesn't provide enough data for.
+- The "AI Copilot" chat button in the sidebar is a static UI element,
+  not yet wired to a real LLM.
+- False-positive rates were reduced through iterative testing on a
+  real personal inbox (see commit history), but no detector — rule-based
+  or ML — can guarantee 100% accuracy.
+- SPF/DKIM/DMARC checking only works when real email headers are
+  available (uploaded `.eml` files), not plain pasted text.
+
+## Tech stack
+
+Python, Flask, scikit-learn, OpenCV, SQLite, React, TypeScript, Vite,
+TailwindCSS, Framer Motion, Recharts, Google Gmail API.
