@@ -97,11 +97,11 @@ export default function MissionControl({ onNavigate }: MissionControlProps) {
         <StatCard label="Threats Blocked" value={(stats?.suspicious ?? 0) + (stats?.malicious ?? 0)} icon={ShieldAlert} accent="danger" trend="all time" delay={0.1} />
         <StatCard label="Critical Alerts" value={stats?.malicious ?? 0} icon={Bell} accent="warning" trend="all time" delay={0.15} />
         <StatCard
-          label="AI Accuracy"
+          label="ML Detection Accuracy"
           value={modelInfo?.trained ? `${(modelInfo.accuracy! * 100).toFixed(1)}%` : '—'}
           icon={Target}
           accent="primary"
-          trend={modelInfo?.trained ? `on ${modelInfo.train_size?.toLocaleString()} emails` : 'not yet trained'}
+          trend={modelInfo?.trained ? `evaluated on ${modelInfo.train_size?.toLocaleString()}-email dataset` : 'not yet trained'}
           delay={0.2}
         />
       </div>
@@ -127,8 +127,8 @@ export default function MissionControl({ onNavigate }: MissionControlProps) {
         </div>
 
         <div className="col-span-3 glass rounded-2xl p-6">
-          <div className="text-[11px] tracking-wide text-slate-500 uppercase mb-3">Threats by Geography</div>
-          <div className="text-[10px] text-slate-600 mb-2 leading-snug">Illustrative — real geolocation needs a live threat-intel feed.</div>
+          <div className="text-[11px] tracking-wide text-slate-500 uppercase mb-3">Observed Threat Indicators</div>
+          <div className="text-[10px] text-slate-600 mb-2 leading-snug">Illustrative breakdown by sender domain / URL hosting region — not verified live IP geolocation.</div>
           <WorldThreatMap data={GEO_DEMO} />
         </div>
 
