@@ -28,6 +28,9 @@ WEIGHTS = {
     "new_sender": 10,
     "device_code": 35,
     "display_spoofing": 30,
+    "dangerous_attachment": 30,
+    "reply_to_mismatch": 25,
+    "typosquatting": 30,
 }
 
 
@@ -44,7 +47,7 @@ def analyze_email(parsed_email: dict, claimed_org: str = None, raw_email_text: s
     pasted text it's fine to leave it out (there are usually no
     authentication headers to find anyway).
     """
-    text_features = feat.extract_all_features(parsed_email, claimed_org)
+    text_features = feat.extract_all_features(parsed_email, claimed_org, raw_email_text)
     qr_findings = qr_detector.scan_images_for_qr(parsed_email.get("images", []))
     has_links = len(parsed_email.get("links", [])) > 0
     qr_signal = qr_detector.build_qr_risk_signal(qr_findings, has_visible_links=has_links)
@@ -97,6 +100,18 @@ def analyze_email(parsed_email: dict, claimed_org: str = None, raw_email_text: s
     if text_features.get("display_name_spoofing_detected"):
         structural_score += WEIGHTS["display_spoofing"]
         techniques.append(f"Display Name Spoofing (claims to be {text_features.get('claimed_brand', 'a known brand')})")
+
+    if text_features.get("dangerous_attachment_found"):
+        structural_score += WEIGHTS["dangerous_attachment"]
+        techniques.append("Dangerous Attachment Type")
+
+    if text_features.get("reply_to_mismatch_detected"):
+        structural_score += WEIGHTS["reply_to_mismatch"]
+        techniques.append("Reply-To Address Mismatch")
+
+    if text_features.get("typosquatting_detected"):
+        structural_score += WEIGHTS["typosquatting"]
+        techniques.append(f"Typosquatting Domain (impersonating {text_features.get('impersonated_domain')})")
 
     # Trusted-domain dampening: if the sender's domain is one of our
     # well-known legitimate services AND there's no display-name
@@ -190,6 +205,15 @@ def classify_attack_type(text_features: dict, qr_signal: dict) -> str:
     if text_features.get("display_name_spoofing_detected"):
         return "Brand Impersonation (Display Name Spoofing)"
 
+    if text_features.get("typosquatting_detected"):
+        return "Brand Impersonation (Typosquatting Domain)"
+
+    if text_features.get("dangerous_attachment_found"):
+        return "Malware Delivery (Dangerous Attachment)"
+
+    if text_features.get("reply_to_mismatch_detected"):
+        return "Business Email Compromise (BEC)"
+
     # Whaling: specifically impersonates a senior executive AND asks
     # for something sensitive -- a more targeted, higher-stakes version
     # of BEC.
@@ -271,6 +295,22 @@ def build_explanation(result: dict) -> str:
         reasons.append(
             f"the display name claims to be '{text_features.get('claimed_brand')}' but the actual sending "
             f"domain doesn't match that company at all -- a classic impersonation trick"
+        )
+    if text_features.get("typosquatting_detected"):
+        reasons.append(
+            f"the sender's domain is a lookalike misspelling of '{text_features.get('impersonated_domain')}' "
+            f"(a technique called typosquatting, designed to look correct at a glance)"
+        )
+    if text_features.get("dangerous_attachment_found"):
+        reasons.append(
+            f"it includes an attachment type ({', '.join(text_features.get('dangerous_attachments', []))}) "
+            f"that can run code on your computer -- executables and macro-enabled Office documents are "
+            f"common malware delivery methods"
+        )
+    if text_features.get("reply_to_mismatch_detected"):
+        reasons.append(
+            f"the 'Reply-To' address ({text_features.get('reply_to_domain')}) doesn't match the visible "
+            f"sender ({text_features.get('from_domain')}) -- any reply would go to a different address than shown"
         )
     if text_features.get("callback_detected"):
         reasons.append("it urges the reader to call a phone number, moving the attack to a phone call where normal email safeguards don't apply")

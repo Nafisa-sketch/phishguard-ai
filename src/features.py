@@ -119,6 +119,15 @@ SPOOFABLE_BRANDS = {
     "dhl": "dhl.com", "fedex": "fedex.com", "ups": "ups.com",
 }
 
+# File extensions that can carry malware directly, or Office files with
+# macros enabled (the classic "invoice.docm" attack). A .pdf or .docx
+# attachment is normal; these types are much rarer in legitimate mail
+# and much more commonly used to deliver malware.
+DANGEROUS_ATTACHMENT_EXTENSIONS = [
+    ".exe", ".scr", ".bat", ".cmd", ".com", ".pif", ".vbs", ".js", ".jar",
+    ".docm", ".xlsm", ".pptm", ".msi", ".ps1", ".lnk",
+]
+
 
 def check_urgency(body: str) -> dict:
     body_lower = body.lower()
@@ -255,6 +264,108 @@ def check_device_code_phishing(body: str, links: list) -> dict:
     }
 
 
+def check_attachments(images: list, attachments: list = None) -> dict:
+    """
+    Flags dangerous attachment file types (executables, scripts,
+    macro-enabled Office documents). 'images' is included because our
+    parser currently returns image attachments separately from other
+    files -- this checks whichever attachment list is available.
+    """
+    all_files = list(images or [])
+    if attachments:
+        all_files += attachments
+
+    dangerous_found = []
+    for f in all_files:
+        filename = (f.get("filename") or "").lower()
+        for ext in DANGEROUS_ATTACHMENT_EXTENSIONS:
+            if filename.endswith(ext):
+                dangerous_found.append(f.get("filename"))
+                break
+
+    return {
+        "dangerous_attachment_found": len(dangerous_found) > 0,
+        "dangerous_attachments": dangerous_found,
+    }
+
+
+def check_reply_to_mismatch(headers_text: str) -> dict:
+    """
+    Compares the 'From' and 'Reply-To' header domains. A mismatch is a
+    classic BEC trick: the visible sender looks legitimate, but any
+    reply actually goes to the attacker's inbox. Only meaningful when
+    real headers are available (e.g. an uploaded .eml file).
+    """
+    if not headers_text:
+        return {"reply_to_mismatch_detected": False, "checked": False}
+
+    from_match = re.search(r"^From:.*?([\w.-]+@[\w.-]+)", headers_text, re.IGNORECASE | re.MULTILINE)
+    reply_to_match = re.search(r"^Reply-To:.*?([\w.-]+@[\w.-]+)", headers_text, re.IGNORECASE | re.MULTILINE)
+
+    if not from_match or not reply_to_match:
+        return {"reply_to_mismatch_detected": False, "checked": False}
+
+    from_domain = from_match.group(1).split("@")[-1].lower()
+    reply_domain = reply_to_match.group(1).split("@")[-1].lower()
+
+    return {
+        "reply_to_mismatch_detected": from_domain != reply_domain,
+        "checked": True,
+        "from_domain": from_domain,
+        "reply_to_domain": reply_domain,
+    }
+
+
+def _levenshtein_distance(a: str, b: str) -> int:
+    """Standard edit-distance calculation -- how many single-character
+    changes turn string a into string b. Used to catch lookalike domains
+    like 'arnaz0n.com' (distance 2 from 'amazon.com')."""
+    if len(a) < len(b):
+        return _levenshtein_distance(b, a)
+    if len(b) == 0:
+        return len(a)
+
+    previous_row = range(len(b) + 1)
+    for i, char_a in enumerate(a):
+        current_row = [i + 1]
+        for j, char_b in enumerate(b):
+            insertions = previous_row[j + 1] + 1
+            deletions = current_row[j] + 1
+            substitutions = previous_row[j] + (char_a != char_b)
+            current_row.append(min(insertions, deletions, substitutions))
+        previous_row = current_row
+    return previous_row[-1]
+
+
+def check_typosquatting(sender: str) -> dict:
+    """
+    Checks if the sender's domain is SUSPICIOUSLY SIMILAR (but not
+    identical) to a well-known brand domain -- e.g. 'arnaz0n.com' or
+    'paypa1.com' instead of 'amazon.com' / 'paypal.com'. A small edit
+    distance (1-2 character changes) on an otherwise-similar-length
+    domain is the classic typosquatting pattern.
+    """
+    if not sender:
+        return {"typosquatting_detected": False, "impersonated_domain": None}
+
+    email_match = re.search(r"[\w\.-]+@[\w\.-]+", sender)
+    if not email_match:
+        return {"typosquatting_detected": False, "impersonated_domain": None}
+
+    domain = email_match.group(0).split("@")[-1].lower()
+
+    all_known_domains = set(TRUSTED_DOMAINS) | set(SPOOFABLE_BRANDS.values())
+
+    for known_domain in all_known_domains:
+        if domain == known_domain:
+            continue
+        distance = _levenshtein_distance(domain, known_domain)
+        if abs(len(domain) - len(known_domain)) <= 2 and 0 < distance <= 2:
+            return {"typosquatting_detected": True, "impersonated_domain": known_domain}
+
+    return {"typosquatting_detected": False, "impersonated_domain": None}
+
+
 def psychology_scores(body: str) -> dict:
     """
     Computes a rough 0-100 score for each of the 5 classic social
@@ -318,14 +429,19 @@ def check_display_name_spoofing(sender: str) -> dict:
     return {"display_name_spoofing_detected": False, "claimed_brand": None}
 
 
-def extract_all_features(parsed_email: dict, claimed_org: str = None) -> dict:
+def extract_all_features(parsed_email: dict, claimed_org: str = None, raw_email_text: str = None) -> dict:
     """
     Runs every check above and returns one combined dictionary.
     This is the single function detector.py will call.
+
+    raw_email_text (optional): the original unparsed email text, needed
+    for header-only checks like Reply-To mismatch that parser.py
+    doesn't preserve.
     """
     body = parsed_email.get("body") or ""
     sender = parsed_email.get("sender") or ""
     links = parsed_email.get("links") or []
+    images = parsed_email.get("images") or []
 
     return {
         **check_urgency(body),
@@ -338,6 +454,9 @@ def extract_all_features(parsed_email: dict, claimed_org: str = None) -> dict:
         **check_device_code_phishing(body, links),
         **check_trusted_domain(sender),
         **check_display_name_spoofing(sender),
+        **check_attachments(images),
+        **check_reply_to_mismatch(raw_email_text or ""),
+        **check_typosquatting(sender),
     }
 
 
