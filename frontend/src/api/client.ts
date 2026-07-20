@@ -100,3 +100,17 @@ export async function getModelInfo(): Promise<ModelInfo> {
   const res = await fetch(`${BASE}/model-info`);
   return res.json();
 }
+
+export interface CopilotMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export async function askCopilot(message: string, history: CopilotMessage[]): Promise<{ reply?: string; error?: string; message?: string }> {
+  const res = await fetch(`${BASE}/copilot/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, history }),
+  });
+  return res.json();
+}

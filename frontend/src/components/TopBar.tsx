@@ -1,6 +1,10 @@
 import { Search, Bell, Sparkles } from 'lucide-react';
 
-export default function TopBar() {
+interface TopBarProps {
+  onOpenCopilot: () => void;
+}
+
+export default function TopBar({ onOpenCopilot }: TopBarProps) {
   return (
     <div className="h-16 border-b border-border flex items-center justify-between px-8 sticky top-0 bg-bg/80 backdrop-blur-md z-10">
       <div className="relative w-80">
@@ -13,7 +17,7 @@ export default function TopBar() {
       </div>
 
       <div className="flex items-center gap-3">
-        <button className="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-gradient-to-r from-primary/15 to-accent/10 border border-primary/30 text-[12.5px] text-slate-200 hover:from-primary/25 hover:to-accent/15 transition-all">
+        <button onClick={onOpenCopilot} className="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-gradient-to-r from-primary/15 to-accent/10 border border-primary/30 text-[12.5px] text-slate-200 hover:from-primary/25 hover:to-accent/15 transition-all">
           <Sparkles size={14} className="text-accent" />
           Ask PhishGuard AI
         </button>

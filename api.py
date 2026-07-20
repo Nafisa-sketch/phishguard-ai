@@ -24,6 +24,10 @@ from flask_cors import CORS
 from src import parser, detector, database, qr_detector, threat_feed
 from src.features import psychology_scores, check_links
 
+import anthropic
+
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
+
 app = Flask(__name__)
 CORS(app)  # allow the React dev server (different port) to call this API
 
@@ -168,6 +172,67 @@ def model_info():
         "f1_score": float(f1_match.group(1)) if f1_match else None,
         "train_size": int(train_size_match.group(1)) if train_size_match else None,
     })
+
+
+@app.route("/api/copilot/chat", methods=["POST"])
+def copilot_chat():
+    """
+    Body: { "message": "...", "history": [{"role": "user"/"assistant", "content": "..."}] }
+
+    Calls the real Anthropic API, grounded with a short summary of the
+    user's actual scan history so it can answer questions like "what's
+    my riskiest sender" with real data, not made-up answers.
+    """
+    if not ANTHROPIC_API_KEY:
+        return jsonify({
+            "error": "not_configured",
+            "message": "AI Copilot isn't configured yet. Set the ANTHROPIC_API_KEY environment variable and restart the backend to enable it.",
+        }), 503
+
+    data = request.get_json(force=True)
+    user_message = data.get("message", "").strip()
+    history = data.get("history", [])
+
+    if not user_message:
+        return jsonify({"error": "message is required"}), 400
+
+    # Ground the assistant in real data instead of letting it guess
+    stats = database.get_stats()
+    recent = database.get_all_scans(limit=10)
+    senders = database.get_sender_intelligence()[:5]
+
+    context = f"""Current PhishGuard AI dashboard data for this user:
+- Total emails scanned: {stats['total']}
+- Safe: {stats['safe']}, Suspicious: {stats['suspicious']}, Malicious: {stats['malicious']}
+- Overall trust score: {stats['trust_score']}%
+
+Most recent scans:
+{chr(10).join(f"- {s['sender']}: {s['attack_type']} (risk {s['risk_score']}/100)" for s in recent[:5]) if recent else "No scans yet."}
+
+Riskiest senders on file:
+{chr(10).join(f"- {s['sender']}: max risk {s['max_risk']}, {s['email_count']} email(s)" for s in senders) if senders else "No sender data yet."}
+"""
+
+    system_prompt = (
+        "You are the AI Copilot inside PhishGuard AI, an email threat detection dashboard. "
+        "Answer questions about phishing, email security, and the user's own scan data below. "
+        "Be concise (2-4 sentences typically). If asked about specific emails/senders, use the "
+        "real data provided -- don't invent details not in the data.\n\n" + context
+    )
+
+    try:
+        client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        messages = history + [{"role": "user", "content": user_message}]
+        response = client.messages.create(
+            model="claude-sonnet-4-5",
+            max_tokens=500,
+            system=system_prompt,
+            messages=messages,
+        )
+        reply_text = "".join(block.text for block in response.content if hasattr(block, "text"))
+        return jsonify({"reply": reply_text})
+    except Exception as e:
+        return jsonify({"error": "api_error", "message": str(e)}), 500
 
 
 if __name__ == "__main__":

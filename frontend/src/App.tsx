@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import Sidebar from './components/Sidebar';
 import TopBar from './components/TopBar';
+import CopilotChat from './components/CopilotChat';
 import MissionControl from './pages/MissionControl';
 import EmailAnalysis from './pages/EmailAnalysis';
 import QrShield from './pages/QrShield';
@@ -15,12 +16,13 @@ import Integrations from './pages/Integrations';
 
 export default function App() {
   const [page, setPage] = useState('mission-control');
+  const [copilotOpen, setCopilotOpen] = useState(false);
 
   return (
     <div className="flex min-h-screen bg-bg">
-      <Sidebar activePage={page} onNavigate={setPage} />
+      <Sidebar activePage={page} onNavigate={setPage} onOpenCopilot={() => setCopilotOpen(true)} />
       <div className="flex-1 min-w-0">
-        <TopBar />
+        <TopBar onOpenCopilot={() => setCopilotOpen(true)} />
         {page === 'mission-control' && <MissionControl onNavigate={setPage} />}
         {page === 'email-analysis' && <EmailAnalysis />}
         {page === 'qr-shield' && <QrShield />}
@@ -33,6 +35,7 @@ export default function App() {
         {page === 'settings' && <Settings />}
         {page === 'integrations' && <Integrations />}
       </div>
+      <CopilotChat open={copilotOpen} onClose={() => setCopilotOpen(false)} />
     </div>
   );
 }

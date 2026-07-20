@@ -20,9 +20,10 @@ const NAV_ITEMS = [
 interface SidebarProps {
   activePage: string;
   onNavigate: (page: string) => void;
+  onOpenCopilot: () => void;
 }
 
-export default function Sidebar({ activePage, onNavigate }: SidebarProps) {
+export default function Sidebar({ activePage, onNavigate, onOpenCopilot }: SidebarProps) {
   return (
     <aside className="w-64 shrink-0 h-screen sticky top-0 bg-card/80 border-r border-border flex flex-col">
       <div className="px-6 py-6 flex items-center gap-3">
@@ -75,7 +76,7 @@ export default function Sidebar({ activePage, onNavigate }: SidebarProps) {
           <p className="text-[11px] text-slate-500 leading-snug mb-3">
             Ask anything about threats, emails, senders or URLs...
           </p>
-          <button className="w-full text-[11.5px] py-2 rounded-lg bg-gradient-to-r from-primary to-accent text-white font-medium flex items-center justify-center gap-1.5 hover:opacity-90 transition-opacity">
+          <button className="w-full text-[11.5px] py-2 rounded-lg bg-gradient-to-r from-primary to-accent text-white font-medium flex items-center justify-center gap-1.5 hover:opacity-90 transition-opacity" onClick={onOpenCopilot}>
             Ask PhishGuard AI <ArrowRight size={12} />
           </button>
         </div>
