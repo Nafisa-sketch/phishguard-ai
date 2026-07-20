@@ -1,3 +1,4 @@
+<img width="1867" height="882" alt="Screenshot 2026-07-21 001658" src="https://github.com/user-attachments/assets/31a892f7-733c-4387-972e-588a1bb53801" />
 # PhishGuard AI
 
 **AI Email Trust Intelligence Platform** — detects phishing, spear phishing,
