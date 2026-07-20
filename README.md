@@ -1,3 +1,4 @@
+<img width="1847" height="890" alt="Screenshot 2026-07-21 001623" src="https://github.com/user-attachments/assets/8c630a00-7a83-473e-89ee-2de15ad705e8" />
 <img width="1867" height="882" alt="Screenshot 2026-07-21 001658" src="https://github.com/user-attachments/assets/31a892f7-733c-4387-972e-588a1bb53801" />
 # PhishGuard AI
 
